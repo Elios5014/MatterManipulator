@@ -1,5 +1,6 @@
 package com.recursive_pineapple.matter_manipulator.common.building;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.item.ItemStack;
@@ -51,6 +52,32 @@ public interface IPseudoInventory {
      */
     public default boolean tryConsumeItems(ItemStack... items) {
         return tryConsumeItems(MMUtils.mapToList(items, BigItemStack::create), 0).leftBoolean();
+    }
+
+    /** Pays only for missing components and refunds surplus ones. The caller must replace the old components on success. */
+    public default boolean tryReplaceItems(List<ItemStack> required, List<ItemStack> existing) {
+        List<ItemStack> surplus = new ArrayList<>();
+        for (ItemStack stack : existing)
+            surplus.add(stack.copy());
+        List<BigItemStack> missing = new ArrayList<>();
+        for (ItemStack stack : required) {
+            int amount = stack.stackSize;
+            for (ItemStack available : surplus) {
+                if (
+                    available.getItem() != stack.getItem() ||
+                        (stack.getHasSubtypes() && available.getItemDamage() != stack.getItemDamage())
+                ) continue;
+                int used = Math.min(amount, available.stackSize);
+                amount -= used;
+                available.stackSize -= used;
+            }
+            if (amount > 0) missing.add(BigItemStack.create(stack).setStackSize(amount));
+        }
+        if (!tryConsumeItems(missing, CONSUME_FUZZY).leftBoolean()) return false;
+        for (ItemStack stack : surplus) {
+            if (stack.stackSize > 0) givePlayerItems(stack);
+        }
+        return true;
     }
 
     public void givePlayerItems(List<BigItemStack> items);
