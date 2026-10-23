@@ -111,7 +111,7 @@ dependencies {
     addCompat(eio, "com.github.GTNewHorizons:EnderIO:2.10.49:dev")
     addCompat(eio, "com.github.GTNewHorizons:EnderStorage:1.8.7:dev")
     compileOnly("com.github.GTNewHorizons:Translocators:1.4.5:dev")
-    testRuntimeOnly("com.github.GTNewHorizons:Translocators:1.4.5:dev")
+    testImplementation("com.github.GTNewHorizons:Translocators:1.4.5:dev")
 
     addCompat(xu, rfg.deobf("curse.maven:extra-utilities-225561:2264384"))
 

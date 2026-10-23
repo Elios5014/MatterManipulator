@@ -29,7 +29,6 @@ public class InteropConstants {
     public static final LazyBlock WIRELESS_HUB = new LazyBlock(Mods.AppliedEnergistics2, "tile.BlockWirelessHub");
     public static final LazyBlockSpec AE_BLOCK_CABLE = LazyBlockSpec.ofBlock(Mods.AppliedEnergistics2, "tile.BlockCableBus", 0);
     public static final LazyBlock FMP_BLOCK = new LazyBlock(Mods.ForgeMultipart, "block");
-    public static final LazyBlock ITEM_TRANSLOCATOR = new LazyBlock(Mods.Translocators, "translocator", 0);
     public static final LazyBlock OC_CABLE = new LazyBlock(Mods.OpenComputers, "cable");
     public static final LazyBlockSpec OC_TRANSPOSER = LazyBlockSpec.ofBlock(Mods.OpenComputers, "transposer", MMValues.W);
     public static final LazyBlockSpec OC_MICROCONTROLLER = LazyBlockSpec.ofBlock(Mods.OpenComputers, "microcontroller", MMValues.W);
@@ -75,7 +74,6 @@ public class InteropConstants {
 
         if (FMP_BLOCK.matches(block, metadata)) return true;
         if (AE_BLOCK_CABLE.matches(block, metadata)) return true;
-        if (ITEM_TRANSLOCATOR.matches(block, metadata)) return true;
 
         return false;
     }

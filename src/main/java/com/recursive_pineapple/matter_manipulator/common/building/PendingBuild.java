@@ -318,7 +318,6 @@ public class PendingBuild extends AbstractBuildable {
                 // just to be safe, we only consume the item when we actually place something
                 if (supportsConfiguring()) {
                     applyContext.pendingBlock = pending;
-                    applyContext.newBlock = false;
                     pending.apply(applyContext, world);
                     rememberP2POutputs(pending);
                 }
@@ -371,7 +370,6 @@ public class PendingBuild extends AbstractBuildable {
             }
 
             applyContext.pendingBlock = pending;
-            applyContext.newBlock = true;
             pending.apply(applyContext, world);
             rememberP2POutputs(pending);
 
@@ -619,7 +617,6 @@ public class PendingBuild extends AbstractBuildable {
         public ItemStack manipulatorItemStack;
         public MMState manipulatorState;
         public PendingBlock pendingBlock;
-        public boolean newBlock;
 
         public PendingBuildApplyContext(ItemStack manipulatorItemStack) {
             this.manipulatorItemStack = manipulatorItemStack;
@@ -674,11 +671,6 @@ public class PendingBuild extends AbstractBuildable {
                 pendingBlock.z,
                 EU_PER_ACTION * complexity
             );
-        }
-
-        @Override
-        public boolean isNewBlock() {
-            return newBlock;
         }
 
         @Override

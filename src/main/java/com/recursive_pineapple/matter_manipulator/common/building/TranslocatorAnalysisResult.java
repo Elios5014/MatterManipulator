@@ -93,7 +93,7 @@ public class TranslocatorAnalysisResult implements ITileAnalysisIntegration {
                 return false;
             }
         }
-        if (!ctx.tryReplaceItems(getRequiredItems(), ctx.isNewBlock() ? new ArrayList<>() : getDrops(existing))) {
+        if (!ctx.tryReplaceItems(getRequiredItems(), getDrops(existing))) {
             ctx.warn(new ChatComponentTranslation("mm.info.warning.missing_components"));
             return false;
         }
@@ -118,7 +118,10 @@ public class TranslocatorAnalysisResult implements ITileAnalysisIntegration {
 
     @Override
     public boolean getRequiredItemsForNewBlock(IBlockApplyContext ctx) {
-        return ctx.tryReplaceItems(getRequiredItems(), new ArrayList<>());
+        List<ItemStack> required = getRequiredItems();
+        // The first drop is one base translocator, already charged by normal ItemBlock placement.
+        if (!required.isEmpty()) required.remove(0);
+        return ctx.tryReplaceItems(required, new ArrayList<>());
     }
 
     @Override

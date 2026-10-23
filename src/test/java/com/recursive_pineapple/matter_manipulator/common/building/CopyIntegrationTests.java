@@ -6,24 +6,90 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.world.World;
 
 import net.minecraftforge.common.util.ForgeDirection;
 
+import com.recursive_pineapple.matter_manipulator.common.building.BlockAnalyzer.IBlockApplyContext;
+import com.recursive_pineapple.matter_manipulator.common.items.manipulator.MMConfig;
 import com.recursive_pineapple.matter_manipulator.common.items.manipulator.Transform;
 import com.recursive_pineapple.matter_manipulator.common.utils.BigFluidStack;
 import com.recursive_pineapple.matter_manipulator.common.utils.BigItemStack;
 
 import org.junit.jupiter.api.Test;
 
+import codechicken.translocator.TileItemTranslocator;
 import it.unimi.dsi.fastutil.booleans.BooleanObjectImmutablePair;
 
 class CopyIntegrationTests {
+
+    @Test
+    void newTranslocatorPlanLeavesOneBaseItemToNormalBlockPlacement() {
+        Item base = new Item();
+        Item modifier = new Item();
+        TranslocatorAnalysisResult source = translocatorWithTwoAttachments(base, modifier);
+        RecordingContext context = new RecordingContext();
+
+        assertTrue(source.getRequiredItemsForNewBlock(context));
+        assertEquals(1, requested(context, base));
+        assertEquals(2, requested(context, modifier));
+        assertTrue(context.refunded.isEmpty());
+        assertEquals(4, source.materials.size());
+
+        context.succeed = false;
+        assertFalse(source.getRequiredItemsForNewBlock(context));
+        assertTrue(context.refunded.isEmpty());
+    }
+
+    @Test
+    void existingTranslocatorPlanCreditsOnlyInstalledAttachments() {
+        Item base = new Item();
+        Item modifier = new Item();
+        TranslocatorAnalysisResult source = translocatorWithTwoAttachments(base, modifier);
+        RecordingContext context = new RecordingContext();
+        TileItemTranslocator tile = new TileItemTranslocator();
+        context.tile = tile;
+
+        assertTrue(source.getRequiredItemsForExistingBlock(context));
+        assertEquals(2, requested(context, base));
+        assertEquals(2, requested(context, modifier));
+
+        tile.attachments[3] = tile.new ItemAttachment(3) {
+            @Override
+            public Collection<ItemStack> getDrops() {
+                return Collections.singletonList(new ItemStack(base));
+            }
+        };
+        assertTrue(source.getRequiredItemsForExistingBlock(context));
+        assertEquals(1, requested(context, base));
+        assertEquals(2, requested(context, modifier));
+        assertTrue(context.refunded.isEmpty());
+    }
+
+    private static TranslocatorAnalysisResult translocatorWithTwoAttachments(Item base, Item modifier) {
+        TranslocatorAnalysisResult result = new TranslocatorAnalysisResult();
+        // Native attachment drops list the base translocator first, followed by its modifiers.
+        for (Item item : new Item[] { base, modifier, base, modifier }) {
+            PortableItemStack material = new PortableItemStack();
+            material.itemStack = new ItemStack(item);
+            result.materials.add(material);
+        }
+        return result;
+    }
+
+    private static long requested(RecordingInventory inventory, Item item) {
+        return inventory.requested.stream().filter(stack -> stack.item == item).mapToLong(stack -> stack.stackSize).sum();
+    }
 
     @Test
     void replacementReusesExistingComponentsAndCoalescesMissingRequests() {
@@ -109,5 +175,40 @@ class CopyIntegrationTests {
         public void givePlayerFluids(List<BigFluidStack> fluids) {
             throw new AssertionError("No fluids should be involved in component accounting");
         }
+    }
+
+    private static class RecordingContext extends RecordingInventory implements IBlockApplyContext {
+
+        TileEntity tile;
+
+        @Override
+        public TileEntity getTileEntity() { return tile; }
+
+        @Override
+        public World getWorld() { throw new AssertionError("Material planning must not modify the world"); }
+
+        @Override
+        public int getX() { return 0; }
+
+        @Override
+        public int getY() { return 0; }
+
+        @Override
+        public int getZ() { return 0; }
+
+        @Override
+        public EntityPlayer getRealPlayer() { return null; }
+
+        @Override
+        public MMConfig getConfig() { return null; }
+
+        @Override
+        public boolean tryApplyAction(double complexity) { return true; }
+
+        @Override
+        public void warn(IChatComponent message) { throw new AssertionError(message); }
+
+        @Override
+        public void error(IChatComponent message) { throw new AssertionError(message); }
     }
 }

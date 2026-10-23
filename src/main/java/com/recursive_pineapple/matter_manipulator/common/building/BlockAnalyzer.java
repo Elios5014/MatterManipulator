@@ -115,10 +115,6 @@ public class BlockAnalyzer {
 
         public boolean tryApplyAction(double complexity);
 
-        default boolean isNewBlock() {
-            return false;
-        }
-
         public void warn(IChatComponent message);
 
         public void error(IChatComponent message);
