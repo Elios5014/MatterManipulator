@@ -1,6 +1,5 @@
 package com.recursive_pineapple.matter_manipulator.common.building;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,7 +26,7 @@ import it.unimi.dsi.fastutil.booleans.BooleanObjectImmutablePair;
 class CopyIntegrationTests {
 
     @Test
-    void replacementReusesEachExistingComponentOnlyOnceWithoutMutatingInputs() {
+    void replacementReusesExistingComponentsAndCoalescesMissingRequests() {
         RecordingInventory inventory = new RecordingInventory();
         Item item = new Item();
         ItemStack existing = new ItemStack(item, 3);
@@ -37,32 +36,34 @@ class CopyIntegrationTests {
         assertTrue(inventory.refunded.isEmpty());
         assertEquals(3, existing.stackSize);
         assertEquals(2, required.stackSize);
+
+        inventory.tryReplaceItems(
+            Arrays.asList(new ItemStack(item), new ItemStack(item)),
+            Collections.emptyList()
+        );
+        assertEquals(1, inventory.requested.size());
+        assertEquals(2, inventory.requested.get(0).stackSize);
     }
 
     @Test
-    void conduitRotationMovesSettingsAndNeverCopiesBuffers() {
-        NBTTagCompound tag = new NBTTagCompound();
-        tag.setInteger("energyStoredRF", 1000);
-        tag.setTag("tank", new NBTTagCompound());
-        tag.setInteger("playerID", 42);
-        tag.setIntArray("connections", new int[] { 0, 1 });
-        tag.setByteArray("conModes", new byte[] { 0, 1, 2, 3, 4, 5 });
-        tag.setInteger("priority.EAST", 10);
-        tag.setInteger("priority.WEST", 20);
-        tag.setInteger("roundRobin", ForgeDirection.EAST.flag);
-        EnderIOAnalysisResult.stripRuntimeState(tag);
-        assertFalse(tag.hasKey("energyStoredRF"));
-        assertFalse(tag.hasKey("tank"));
-        assertFalse(tag.hasKey("playerID"));
-        assertFalse(tag.hasKey("connections"));
+    void replacementDoesNotReuseDifferentNbtOrRefundWhenConsumptionFails() {
+        RecordingInventory inventory = new RecordingInventory();
+        Item item = new Item();
+        ItemStack oldComponent = new ItemStack(item);
+        NBTTagCompound oldTag = new NBTTagCompound();
+        oldTag.setString("filter", "old");
+        oldComponent.setTagCompound(oldTag);
+        ItemStack required = new ItemStack(item);
+        NBTTagCompound newTag = new NBTTagCompound();
+        newTag.setString("filter", "new");
+        required.setTagCompound(newTag);
 
-        Transform mirror = new Transform();
-        mirror.flipX = true;
-        EnderIOAnalysisResult.transformSettings(tag, mirror);
-        assertEquals(20, tag.getInteger("priority.EAST"));
-        assertEquals(10, tag.getInteger("priority.WEST"));
-        assertEquals(ForgeDirection.WEST.flag, tag.getInteger("roundRobin"));
-        assertArrayEquals(new byte[] { 0, 1, 2, 3, 5, 4 }, tag.getByteArray("conModes"));
+        inventory.succeed = false;
+        assertFalse(inventory.tryReplaceItems(Arrays.asList(required), Arrays.asList(oldComponent)));
+        assertEquals(1, inventory.requested.size());
+        assertTrue(ItemStack.areItemStackTagsEqual(required, inventory.requested.get(0).getItemStack()));
+        assertTrue(inventory.refunded.isEmpty());
+        assertEquals(1, oldComponent.stackSize);
     }
 
     @Test
@@ -89,14 +90,14 @@ class CopyIntegrationTests {
     private static class RecordingInventory implements IPseudoInventory {
 
         boolean succeed = true;
-        List<BigItemStack> requested;
+        List<BigItemStack> requested = Collections.emptyList();
         List<BigItemStack> refunded = new ArrayList<>();
 
         @Override
         public BooleanObjectImmutablePair<List<BigItemStack>> tryConsumeItems(List<BigItemStack> items, int flags) {
-            assertEquals(CONSUME_FUZZY, flags);
+            assertEquals(0, flags);
             requested = items;
-            return BooleanObjectImmutablePair.of(succeed, Collections.emptyList());
+            return BooleanObjectImmutablePair.of(succeed, succeed ? items : null);
         }
 
         @Override

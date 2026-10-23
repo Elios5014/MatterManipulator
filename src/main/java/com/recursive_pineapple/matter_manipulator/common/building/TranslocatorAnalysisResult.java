@@ -14,12 +14,10 @@ import net.minecraftforge.common.util.ForgeDirection;
 import com.recursive_pineapple.matter_manipulator.common.building.BlockAnalyzer.IBlockApplyContext;
 import com.recursive_pineapple.matter_manipulator.common.items.manipulator.Transform;
 
-import codechicken.lib.inventory.InventoryUtils;
 import codechicken.translocator.TileItemTranslocator;
 import codechicken.translocator.TileTranslocator.Attachment;
-import lombok.EqualsAndHashCode;
+import codechicken.translocator.Translocator;
 
-@EqualsAndHashCode
 public class TranslocatorAnalysisResult implements ITileAnalysisIntegration {
 
     public NBTTagCompound data;
@@ -75,30 +73,40 @@ public class TranslocatorAnalysisResult implements ITileAnalysisIntegration {
         TileItemTranslocator replacement = createTile(ctx);
         for (ForgeDirection side : ForgeDirection.VALID_DIRECTIONS) {
             if (
-                replacement.attachments[side.ordinal()] != null && (!ctx.getWorld()
-                    .blockExists(
-                        ctx.getX() + side.offsetX,
-                        ctx.getY() + side.offsetY,
-                        ctx.getZ() + side.offsetZ
-                    ) ||
-                    InventoryUtils.getInventory(
-                        ctx.getWorld(),
-                        ctx.getX() + side.offsetX,
-                        ctx.getY() + side.offsetY,
-                        ctx.getZ() + side.offsetZ
-                    ) == null)
+                replacement.attachments[side.ordinal()] != null &&
+                    (!ctx.getWorld()
+                        .blockExists(
+                            ctx.getX() + side.offsetX,
+                            ctx.getY() + side.offsetY,
+                            ctx.getZ() + side.offsetZ
+                        ) ||
+                        !Translocator.blockTranslocator.canExistOnSide(
+                            ctx.getWorld(),
+                            ctx.getX(),
+                            ctx.getY(),
+                            ctx.getZ(),
+                            side.ordinal(),
+                            0
+                        ))
             ) {
                 ctx.warn(new ChatComponentTranslation("mm.info.warning.translocator_support"));
                 return false;
             }
         }
-        if (!ctx.tryReplaceItems(getRequiredItems(), getDrops(existing))) {
+        if (!ctx.tryReplaceItems(getRequiredItems(), ctx.isNewBlock() ? new ArrayList<>() : getDrops(existing))) {
             ctx.warn(new ChatComponentTranslation("mm.info.warning.missing_components"));
             return false;
         }
         ctx.getWorld().setTileEntity(ctx.getX(), ctx.getY(), ctx.getZ(), replacement);
         replacement.markDirty();
         ctx.getWorld().markBlockForUpdate(ctx.getX(), ctx.getY(), ctx.getZ());
+        ctx.getWorld()
+            .notifyBlocksOfNeighborChange(
+                ctx.getX(),
+                ctx.getY(),
+                ctx.getZ(),
+                ctx.getWorld().getBlock(ctx.getX(), ctx.getY(), ctx.getZ())
+            );
         return true;
     }
 
@@ -130,6 +138,16 @@ public class TranslocatorAnalysisResult implements ITileAnalysisIntegration {
         for (PortableItemStack material : materials)
             copy.materials.add(material.clone());
         return copy;
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * data.hashCode() + materials.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof TranslocatorAnalysisResult other && data.equals(other.data) && materials.equals(other.materials);
     }
 
     @Override

@@ -1,7 +1,9 @@
 package com.recursive_pineapple.matter_manipulator.common.building;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.item.ItemStack;
 
@@ -9,6 +11,7 @@ import net.minecraftforge.fluids.FluidStack;
 
 import com.recursive_pineapple.matter_manipulator.common.utils.BigFluidStack;
 import com.recursive_pineapple.matter_manipulator.common.utils.BigItemStack;
+import com.recursive_pineapple.matter_manipulator.common.utils.ItemId;
 import com.recursive_pineapple.matter_manipulator.common.utils.MMUtils;
 
 import it.unimi.dsi.fastutil.booleans.BooleanObjectImmutablePair;
@@ -57,23 +60,35 @@ public interface IPseudoInventory {
     /** Pays only for missing components and refunds surplus ones. The caller must replace the old components on success. */
     public default boolean tryReplaceItems(List<ItemStack> required, List<ItemStack> existing) {
         List<ItemStack> surplus = new ArrayList<>();
-        for (ItemStack stack : existing)
+        for (ItemStack stack : existing) {
+            if (stack == null) return false;
             surplus.add(stack.copy());
-        List<BigItemStack> missing = new ArrayList<>();
+        }
+        Map<ItemId, BigItemStack> missing = new HashMap<>();
         for (ItemStack stack : required) {
+            if (stack == null) return false;
             int amount = stack.stackSize;
             for (ItemStack available : surplus) {
-                if (
-                    available.getItem() != stack.getItem() ||
-                        (stack.getHasSubtypes() && available.getItemDamage() != stack.getItemDamage())
-                ) continue;
+                if (!available.isItemEqual(stack) || !ItemStack.areItemStackTagsEqual(available, stack)) continue;
                 int used = Math.min(amount, available.stackSize);
                 amount -= used;
                 available.stackSize -= used;
             }
-            if (amount > 0) missing.add(BigItemStack.create(stack).setStackSize(amount));
+            if (amount > 0) {
+                ItemId id = ItemId.create(stack.getItem(), stack.getItemDamage(), stack.getTagCompound());
+                BigItemStack request = missing.computeIfAbsent(id, key -> {
+                    BigItemStack item = new BigItemStack();
+                    item.item = stack.getItem();
+                    item.meta = stack.getItemDamage();
+                    item.tag = stack.getTagCompound() == null ? null : (net.minecraft.nbt.NBTTagCompound) stack.getTagCompound().copy();
+                    item.id = key;
+                    return item;
+                });
+                request.incStackSize(amount);
+            }
         }
-        if (!tryConsumeItems(missing, CONSUME_FUZZY).leftBoolean()) return false;
+        List<BigItemStack> requests = new ArrayList<>(missing.values());
+        if (!tryConsumeItems(requests, 0).leftBoolean()) return false;
         for (ItemStack stack : surplus) {
             if (stack.stackSize > 0) givePlayerItems(stack);
         }

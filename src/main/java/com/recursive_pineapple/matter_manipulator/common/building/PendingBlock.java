@@ -59,7 +59,6 @@ public class PendingBlock extends Location {
     public ITileAnalysisIntegration arch;
     public ITileAnalysisIntegration mp;
     public ITileAnalysisIntegration cb;
-    public ITileAnalysisIntegration eio;
     public ITileAnalysisIntegration translocator;
     public transient SmartCopyIntegration smartCopy;
 
@@ -84,7 +83,6 @@ public class PendingBlock extends Location {
         this.arch = null;
         this.mp = null;
         this.cb = null;
-        this.eio = null;
         this.translocator = null;
         this.smartCopy = null;
         this.inventory = null;
@@ -156,7 +154,6 @@ public class PendingBlock extends Location {
         if (arch != null) list.add(arch);
         if (mp != null) list.add(mp);
         if (cb != null) list.add(cb);
-        if (eio != null) list.add(eio);
         if (translocator != null) list.add(translocator);
         if (smartCopy != null) list.add(smartCopy);
 
@@ -255,7 +252,6 @@ public class PendingBlock extends Location {
         if (arch != null) dup.arch = arch.clone();
         if (mp != null) dup.mp = mp.clone();
         if (cb != null) dup.cb = cb.clone();
-        if (eio != null) dup.eio = eio.clone();
         if (translocator != null) dup.translocator = translocator.clone();
         if (smartCopy != null) dup.smartCopy = smartCopy.clone();
         if (inventory != null) dup.inventory = inventory.clone();
@@ -479,7 +475,6 @@ public class PendingBlock extends Location {
         result = prime * result + ((arch == null) ? 0 : arch.hashCode());
         result = prime * result + ((mp == null) ? 0 : mp.hashCode());
         result = prime * result + ((cb == null) ? 0 : cb.hashCode());
-        result = prime * result + java.util.Objects.hashCode(eio);
         result = prime * result + java.util.Objects.hashCode(translocator);
         result = prime * result + ((inventory == null) ? 0 : inventory.hashCode());
         result = prime * result + renderOrder;
@@ -511,7 +506,6 @@ public class PendingBlock extends Location {
         if (cb == null) {
             if (other.cb != null) return false;
         } else if (!cb.equals(other.cb)) return false;
-        if (!java.util.Objects.equals(eio, other.eio)) return false;
         if (!java.util.Objects.equals(translocator, other.translocator)) return false;
         if (inventory == null) {
             if (other.inventory != null) return false;
@@ -543,7 +537,6 @@ public class PendingBlock extends Location {
     public static final int ANALYZE_MP = 0b1 << counter++;
     public static final int ANALYZE_CB = 0b1 << counter++;
     public static final int ANALYZE_INV = 0b1 << counter++;
-    public static final int ANALYZE_EIO = 0b1 << counter++;
     public static final int ANALYZE_TRANSLOCATOR = 0b1 << counter++;
     public static final int ANALYZE_ALL = -1;
 
@@ -569,13 +562,8 @@ public class PendingBlock extends Location {
                 this.cb = CarpentersBlocksAnalysisResult.analyze(te);
             }
 
-            if ((flags & ANALYZE_EIO) != 0 && Mods.EnderIO.isModLoaded()) {
-                this.eio = EnderIOAnalysisResult.analyze(te);
-            }
-
             if ((flags & ANALYZE_TRANSLOCATOR) != 0 && Mods.Translocators.isModLoaded()) {
-                this.translocator = TranslocatorAnalysisResult.analyze(te);
-                if (translocator != null) buildOrder = Math.max(buildOrder, 100);
+                this.translocator = analyzeTranslocator(te);
             }
 
             // Microcontroller parts are copied with the item (see MicrocontrollerCompat), not as an inventory
@@ -590,13 +578,19 @@ public class PendingBlock extends Location {
         return this;
     }
 
+    @Optional(Names.TRANSLOCATORS)
+    private ITileAnalysisIntegration analyzeTranslocator(TileEntity te) {
+        ITileAnalysisIntegration analysis = TranslocatorAnalysisResult.analyze(te);
+        if (analysis != null) buildOrder = Math.max(buildOrder, 100);
+        return analysis;
+    }
+
     public PendingBlock migrate() {
         if (gt != null) gt.migrate();
         if (ae != null) ae.migrate();
         if (arch != null) arch.migrate();
         if (mp != null) mp.migrate();
         if (cb != null) cb.migrate();
-        if (eio != null) eio.migrate();
         if (translocator != null) translocator.migrate();
 
         return this;
